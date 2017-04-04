@@ -1,6 +1,8 @@
 $(function(){
   init();
   console.log('working');
+  ParseFen(START_FEN);
+  PrintBoard();
 });
 
 function InitFilesRanksBrd() {

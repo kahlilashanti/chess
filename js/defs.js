@@ -36,6 +36,14 @@ var MAXDEPTH = 64;
 var FilesBrd = new Array(BRD_SQ_NUM);
 var RanksBrd = new Array(BRD_SQ_NUM);
 
+var START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+//these are character variables so it's easier to print squares and things to the screen later on
+var PceChar = ".PNBRQKpnbrqk";
+var SideChar = "wb-";
+var RankChar = "12345678";
+var FileChar = "abcdefgh";
+
 //a function that returns us our board square position for a given file and rank
 function FR2SQ(f, r) {
   return ( (21 + (f) ) + ( (r) * 10 ) );
