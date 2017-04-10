@@ -2,251 +2,468 @@
 //https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
 
 
+// function PCEINDEX(pce, pceNum) {
+//   return (pce * 10 + pceNum); //returns our piece multiplied by ten plus the piece number in the list
+// }
+//
+// //using Global variable here
+// var GameBoard = {};
+//
+// //we need to maintain the state of our pieces
+// //we need an array to reflect this piece status
+// GameBoard.pieces = new Array(BRD_SQ_NUM);
+// GameBoard.side = COLOURS.WHITE;
+//
+// // a player can claim a draw if both players have made 50 moves
+// //so every time a move is made we increment fiftyMove by 1
+// //if fiftyMove ever hits 100 the game is drawn
+// //fiftyMove gets reset to zero every time a pawn is moved or a capture is made
+// GameBoard.fiftyMove = 0;
+//
+// //this will maintain a count of all of the half moves made in the game from the start
+// GameBoard.hisPly = 0;
+//
+// //the number of half moves made in the search tree
+// GameBoard.ply = 0;
+//
+// //you can only castle if the king and the rook are on their starting position and haven't moved
+// //see var CASTLEBIT in defs.js
+// // the one furthest to the right has the least significance
+//
+// GameBoard.enPas = 0;
+//
+// GameBoard.castlePerm = 0;
+// //will hold the value of the material of each side.
+// GameBoard.material = new Array(2);
+//
+// //piece lists - in order to generate moves we'd need to loop through our board, look if there's a piece on our board.  if the piece on the square equals color of the side to move, then generate a move for the square
+//
+// //we need an array that keeps track of our piece number -> how many pieces we have of each type
+// GameBoard.pceNum = new Array(13); //indexed by piece
+//
+// //how might we store this list in a one dimensional array?
+// //we're going to have a piecelist array and at its given index it will give the square.
+// //store the maximum capacity of all the piece types in that array
+//
+// // white pawn multiplied by ten and then add the white pawn number which is a 0 based index from GameBoard.pceNum
+// GameBoard.pList = new Array(14 * 10);
+//
+// GameBoard.posKey = 0;//we can use this for repetition detection
+//
+// GameBoard.moveList = new Array(MAXDEPTH * MAXPOSITIONMOVES);
+// GameBoard.moveScores = new Array(MAXDEPTH * MAXPOSITIONMOVES);
+// GameBoard.moveListStart = new Array(MAXDEPTH);
+//
+// function PrintBoard(){
+//
+//   var sq, file, rank, piece;
+//
+//   console.log("\nGame Board:\n")
+//
+//   for(rank = RANKS.RANK_8; rank >= RANKS.RANK_1; rank--){
+//     var line = (RankChar[rank] + "  ");
+//     for(file = FILES.FILE_A; file <= FILES.FILE_H; file++){
+//       sq = FR25SQ(file,rank);
+//       piece = Gameboard.pieces[sq];
+//       line += (" " + PceChar[piece] + " ");
+//     }
+//     console.log(line);
+//   }
+//
+//   console.log("");
+//   var line = "   ";
+//   for(file = FILES.FILE_A; file <= FILES.FILE_H; file++){
+//     line += (' ' + FileChar[file] + ' ');
+//   }
+//
+//   console.log(line);
+//   console.log("side:" + SideChar[GameBoard.side] );
+//   console.log("enPas:" + GameBoard.enPas);
+//   line = "";
+//
+//   if(GameBoard.castlePerm & CASTLEBIT.WKCA) line += 'K';
+//   if(GameBoard.castlePerm & CASTLEBIT.WQCA) line += 'Q';
+//   if(GameBoard.castlePerm & CASTLEBIT.BKCA) line += 'k';
+//   if(GameBoard.castlePerm & CASTLEBIT.BQCA) line += 'q';
+//   console.log("castle:" + line);
+//   console.log("key:" + GameBoard.posKey.toString(16));
+//
+// }
+//
+//
+// function GeneratePosKey(){
+//   var sq = 0;
+//   var finalKey = 0;
+//   var piece = PIECES.EMPTY;
+//
+//   //hash into our final key the unique number for a given piece on a given square
+//
+//   for(sq = 0; sq < BRD_SQ_NUM; ++sq){
+//     piece = GameBoard.pieces[sq];
+//     if(piece != PIECES.EMPTY && piece != SQUARES.OFFBOARD){
+//       finalKey ^= pIeceKeys[(piece * 120) + sq];
+//     }
+//   }
+//
+//   //if the side to move is white we'll hash in our side key
+//   if(GameBoard.side == COLOURS.WHITE){
+//     finalKey ^= SideKey;
+//   }
+//
+//   if(GameBoard.enPas != SQUARES.NO_SQ){
+//     finalKey ^= PieceKeys[GameBoard.enPas];
+//   }
+//
+//   finalKey ^= CastleKeys[Gameboard.castlePerm];
+//
+//   return finalKey;
+//
+// }
+//
+// function ResetBoard(){
+//
+//   var index = 0;
+//
+//   for (index = 0; index < BRD_SQ_NUM; ++index){
+//     GameBoard.pieces[index] = SQUARES.OFFBOARD;
+//   }
+//
+//   for(index = 0; index < 64; ++index){
+//     GameBoard.pieces[SQ120(index)] = PIECES.EMPTY;
+//   }
+//
+//   for(index = 0; index < 14 * 120; ++index){
+//     GameBoard.Plist[index] = PIECES.EMPTY;
+//   }
+//
+//   for(index = 0; index < 2; ++index){
+//     GameBoard.material[index] = 0;
+//   }
+//
+//   for(index = 0; index < 13; ++index){
+//     GameBoard.pceNum[index] = 0;
+//   }
+//
+//   GameBoard.side = COLOURS.BOTH;
+//   GameBoard.enPas = SQUARES.NO_SQ;
+//   GameBoard.fiftyMove = 0;
+//   GameBoard.ply = 0;
+//   GameBoard.hisPly = 0;
+//   GameBoard.castlePerm = 0;
+//   GameBoard.posKey = 0;
+//   GameBoard.moveListStart[GameBoard.ply] = 0;
+//
+// }
+//
+// function ParseFen(fen){
+//
+//   ResetBoard();
+//
+//   var rank = RANKS.RANK_8;
+//   var file = FILES.FILE_A;
+//   var piece  = 0;
+//   var count = 0;
+//   var i = 0;
+//   var sq120 = 0;
+//   var fenCnt = 0;
+//
+//   //create a loop to iterate through the Fen string, ending when we reach a space
+//   while ((rank >= RANKS.RANK_1) && fenCnt < fen.length){
+//     count = 1;
+//     switch (fen[fenCnt]){
+//         case 'p': piece = PIECES.bP; break;
+//         case 'r': piece = PIECES.bR; break;
+//         case 'n': piece = PIECES.bN; break;
+//         case 'b': piece = PIECES.bB; break;
+//         case 'k': piece = PIECES.bK; break;
+//         case 'q': piece = PIECES.bQ; break;
+//         case 'P': piece = PIECES.wP; break;
+//         case 'R': piece = PIECES.wR; break;
+//         case 'N': piece = PIECES.wN; break;
+//         case 'B': piece = PIECES.wB; break;
+//         case 'K': piece = PIECES.wK; break;
+//         case 'Q': piece = PIECES.wQ; break;
+//
+//         case '1':
+//         case '2':
+//         case '3':
+//         case '4':
+//         case '5':
+//         case '6':
+//         case '7':
+//         case '8':
+//           piece = PIECES.EMPTY;
+//           count = fen[fenCnt].charCodeAt() - '0'.charCodeAt();
+//           break;
+//
+//           case '/':
+//           case ' ':
+//             rank--;
+//             file = FILES.FILE_A;
+//             fenCnt++;
+//             continue;
+//           default:
+//             console.log('FEN Error');
+//             return;
+//
+//     }
+//     //we can now make use of our count
+//     for(i = 0; i < count; i++){
+//       sq120 = FR25Q(file,rank);
+//       Gamebord.pieces[sq120] = piece;
+//       file++;
+//     }
+//     fenCnt++;
+//   }
+//
+//   Gamebord.side = (fen[fenCnt] == 'w') ? COLOURS.WHITE : COLOURS.BLACK;
+//   fenCnt += 2;
+//
+//   for (i = 0; i < 4; i++){
+//     if (fen[fenCnt] == ' '){
+//       break;
+//     }
+//     switch(fen[fenCnt]){
+//       case 'K': Gamebord.castlePerm |= CASTLEBIT.WKCA; break;
+//       case 'Q': Gamebord.castlePerm |= CASTLEBIT.WQCA; break;
+//       case 'k': Gamebord.castlePerm |= CASTLEBIT.BKCA; break;
+//       case 'q': Gamebord.castlePerm |= CASTLEBIT.BQCA; break;
+//       default:  break;
+//     }
+//     fenCnt++;
+//   }
+//   fenCnt++;
+//
+//   if (fen[fenCnt] != '-'){
+//     file = fen[fenCnt].charCodeAt() - 'a'.charCodeAt();
+//     rank = fen[fenCnt + 1].charCodeAt() - '1'.charCodeAt();
+//     console.log("fen[fenCnt]:" + fen[fenCnt] + " File:" + file + " Rank:" + rank);
+//     Gamebord.enPas = FR25Q(file, rank);
+//   }
+//
+//   Gamebord.posKey = GeneratePosKey();
+//
+//
+//
+//
+//
+//
+//
+// }
+
+
+
+
+
+
 function PCEINDEX(pce, pceNum) {
-  return (pce * 10 + pceNum); //returns our piece multiplied by ten plus the piece number in the list
+	return (pce * 10 + pceNum);
 }
 
-//using Global variable here
 var GameBoard = {};
 
-//we need to maintain the state of our pieces
-//we need an array to reflect this piece status
 GameBoard.pieces = new Array(BRD_SQ_NUM);
 GameBoard.side = COLOURS.WHITE;
-
-// a player can claim a draw if both players have made 50 moves
-//so every time a move is made we increment fiftyMove by 1
-//if fiftyMove ever hits 100 the game is drawn
-//fiftyMove gets reset to zero every time a pawn is moved or a capture is made
 GameBoard.fiftyMove = 0;
-
-//this will maintain a count of all of the half moves made in the game from the start
 GameBoard.hisPly = 0;
-
-//the number of half moves made in the search tree
 GameBoard.ply = 0;
-
-//you can only castle if the king and the rook are on their starting position and haven't moved
-//see var CASTLEBIT in defs.js
-// the one furthest to the right has the least significance
-
 GameBoard.enPas = 0;
-
 GameBoard.castlePerm = 0;
-//will hold the value of the material of each side.
-GameBoard.material = new Array(2);
-
-//piece lists - in order to generate moves we'd need to loop through our board, look if there's a piece on our board.  if the piece on the square equals color of the side to move, then generate a move for the square
-
-//we need an array that keeps track of our piece number -> how many pieces we have of each type
-GameBoard.pceNum = new Array(13); //indexed by piece
-
-//how might we store this list in a one dimensional array?
-//we're going to have a piecelist array and at its given index it will give the square.
-//store the maximum capacity of all the piece types in that array
-
-// white pawn multiplied by ten and then add the white pawn number which is a 0 based index from GameBoard.pceNum
+GameBoard.material = new Array(2); // WHITE,BLACK material of pieces
+GameBoard.pceNum = new Array(13); // indexed by Pce
 GameBoard.pList = new Array(14 * 10);
-
-GameBoard.posKey = 0;//we can use this for repetition detection
+GameBoard.posKey = 0;
 
 GameBoard.moveList = new Array(MAXDEPTH * MAXPOSITIONMOVES);
 GameBoard.moveScores = new Array(MAXDEPTH * MAXPOSITIONMOVES);
 GameBoard.moveListStart = new Array(MAXDEPTH);
 
-function PrintBoard(){
+function PrintBoard() {
 
-  var sq, file, rank, piece;
+	var sq,file,rank,piece;
 
-  console.log("\nGame Board:\n")
+	console.log("\nGame Board:\n");
+	for(rank = RANKS.RANK_8; rank >= RANKS.RANK_1; rank--) {
+		var line =(RankChar[rank] + "  ");
+		for(file = FILES.FILE_A; file <= FILES.FILE_H; file++) {
+			sq = FR2SQ(file,rank);
+			piece = GameBoard.pieces[sq];
+			line += (" " + PceChar[piece] + " ");
+		}
+		console.log(line);
+	}
 
-  for(rank = RANKS.RANK_8; rank >= RANKS.RANK_1; rank--){
-    var line = (RankChar[rank] + "  ");
-    for(file = FILES.FILE_A; file <= FILES.FILE_H; file++){
-      sq = FR25SQ(file,rank);
-      piece = Gameboard.pieces[sq];
-      line += (" " + PceChar[piece] + " ");
-    }
-    console.log(line);
-  }
+	console.log("");
+	var line = "   ";
+	for(file = FILES.FILE_A; file <= FILES.FILE_H; file++) {
+		line += (' ' + FileChar[file] + ' ');
+	}
 
-  console.log("");
-  var line = "   ";
-  for(file = FILES.FILE_A; file <= FILES.FILE_H; file++){
-    line += (' ' + FileChar[file] + ' ');
-  }
+	console.log(line);
+	console.log("side:" + SideChar[GameBoard.side] );
+	console.log("enPas:" + GameBoard.enPas);
+	line = "";
 
-  console.log(line);
-  console.log("side:" + SideChar[GameBoard.side] );
-  console.log("enPas:" + GameBoard.enPas);
-  line = "";
-
-  if(GameBoard.castlePerm & CASTLEBIT.WKCA) line += 'K';
-  if(GameBoard.castlePerm & CASTLEBIT.WQCA) line += 'Q';
-  if(GameBoard.castlePerm & CASTLEBIT.BKCA) line += 'k';
-  if(GameBoard.castlePerm & CASTLEBIT.BQCA) line += 'q';
-  console.log("castle:" + line);
-  console.log("key:" + GameBoard.posKey.toString(16));
-
+	if(GameBoard.castlePerm & CASTLEBIT.WKCA) line += 'K';
+	if(GameBoard.castlePerm & CASTLEBIT.WQCA) line += 'Q';
+	if(GameBoard.castlePerm & CASTLEBIT.BKCA) line += 'k';
+	if(GameBoard.castlePerm & CASTLEBIT.BQCA) line += 'q';
+	console.log("castle:" + line);
+	console.log("key:" + GameBoard.posKey.toString(16));
 }
 
 
-function GeneratePosKey(){
-  var sq = 0;
-  var finalKey = 0;
-  var piece = PIECES.EMPTY;
+function GeneratePosKey() {
 
-  //hash into our final key the unique number for a given piece on a given square
+	var sq = 0;
+	var finalKey = 0;
+	var piece = PIECES.EMPTY;
 
-  for(sq = 0; sq < BRD_SQ_NUM; ++sq){
-    piece = GameBoard.pieces[sq];
-    if(piece != PIECES.EMPTY && piece != SQUARES.OFFBOARD){
-      finalKey ^= pIeceKeys[(piece * 120) + sq];
-    }
-  }
+	for(sq = 0; sq < BRD_SQ_NUM; ++sq) {
+		piece = GameBoard.pieces[sq];
+		if(piece != PIECES.EMPTY && piece != SQUARES.OFFBOARD) {
+			finalKey ^= PieceKeys[(piece * 120) + sq];
+		}
+	}
 
-  //if the side to move is white we'll hash in our side key
-  if(GameBoard.side == COLOURS.WHITE){
-    finalKey ^= SideKey;
-  }
+	if(GameBoard.side == COLOURS.WHITE) {
+		finalKey ^= SideKey;
+	}
 
-  if(GameBoard.enPas != SQUARES.NO_SQ){
-    finalKey ^= PieceKeys[GameBoard.enPas];
-  }
+	if(GameBoard.enPas != SQUARES.NO_SQ) {
+		finalKey ^= PieceKeys[GameBoard.enPas];
+	}
 
-  finalKey ^= CastleKeys[Gameboard.castlePerm];
+	finalKey ^= CastleKeys[GameBoard.castlePerm];
 
-  return finalKey;
+	return finalKey;
 
 }
 
-function ResetBoard(){
+function ResetBoard() {
 
-  var index = 0;
+	var index = 0;
 
-  for (index = 0; index < BRD_SQ_NUM; ++index){
-    GameBoard.pieces[index] = SQUARES.OFFBOARD;
-  }
+	for(index = 0; index < BRD_SQ_NUM; ++index) {
+		GameBoard.pieces[index] = SQUARES.OFFBOARD;
+	}
 
-  for(index = 0; index < 64; ++index){
-    GameBoard.pieces[SQ120(index)] = PIECES.EMPTY;
-  }
+	for(index = 0; index < 64; ++index) {
+		GameBoard.pieces[SQ120(index)] = PIECES.EMPTY;
+	}
 
-  for(index = 0; index < 14 * 120; ++index){
-    GameBoard.Plist[index] = PIECES.EMPTY;
-  }
+	for(index = 0; index < 14 * 120; ++index) {
+		GameBoard.pList[index] = PIECES.EMPTY;
+	}
 
-  for(index = 0; index < 2; ++index){
-    GameBoard.material[index] = 0;
-  }
+	for(index = 0; index < 2; ++index) {
+		GameBoard.material[index] = 0;
+	}
 
-  for(index = 0; index < 13; ++index){
-    GameBoard.pceNum[index] = 0;
-  }
+	for(index = 0; index < 13; ++index) {
+		GameBoard.pceNum[index] = 0;
+	}
 
-  GameBoard.side = COLOURS.BOTH;
-  GameBoard.enPas = SQUARES.NO_SQ;
-  GameBoard.fiftyMove = 0;
-  GameBoard.ply = 0;
-  GameBoard.hisPly = 0;
-  GameBoard.castlePerm = 0;
-  GameBoard.posKey = 0;
-  GameBoard.moveListStart[GameBoard.ply] = 0;
+	GameBoard.side = COLOURS.BOTH;
+	GameBoard.enPas = SQUARES.NO_SQ;
+	GameBoard.fiftyMove = 0;
+	GameBoard.ply = 0;
+	GameBoard.hisPly = 0;
+	GameBoard.castlePerm = 0;
+	GameBoard.posKey = 0;
+	GameBoard.moveListStart[GameBoard.ply] = 0;
 
 }
 
-function ParseFen(fen){
+//rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 
-  ResetBoard();
+function ParseFen(fen) {
 
-  var rank = RANKS.RANK_8;
-  var file = FILES.FILE_A;
-  var piece  = 0;
-  var count = 0;
-  var i = 0;
-  var sq120 = 0;
-  var fenCnt = 0;
+	ResetBoard();
 
-  //create a loop to iterate through the Fen string, ending when we reach a space
-  while ((rank >= RANKS.RANK_1) && fenCnt < fen.length){
-    count = 1;
-    switch (fen[fenCnt]){
-        case 'p': piece = PIECES.bP; break;
-        case 'r': piece = PIECES.bR; break;
-        case 'n': piece = PIECES.bN; break;
-        case 'b': piece = PIECES.bB; break;
-        case 'k': piece = PIECES.bK; break;
-        case 'q': piece = PIECES.bQ; break;
-        case 'P': piece = PIECES.wP; break;
-        case 'R': piece = PIECES.wR; break;
-        case 'N': piece = PIECES.wN; break;
-        case 'B': piece = PIECES.wB; break;
-        case 'K': piece = PIECES.wK; break;
-        case 'Q': piece = PIECES.wQ; break;
+	var rank = RANKS.RANK_8;
+    var file = FILES.FILE_A;
+    var piece = 0;
+    var count = 0;
+    var i = 0;
+	var sq120 = 0;
+	var fenCnt = 0; // fen[fenCnt]
 
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-          piece = PIECES.EMPTY;
-          count = fen[fenCnt].charCodeAt() - '0'.charCodeAt();
-          break;
+	while ((rank >= RANKS.RANK_1) && fenCnt < fen.length) {
+	    count = 1;
+		switch (fen[fenCnt]) {
+			case 'p': piece = PIECES.bP; break;
+            case 'r': piece = PIECES.bR; break;
+            case 'n': piece = PIECES.bN; break;
+            case 'b': piece = PIECES.bB; break;
+            case 'k': piece = PIECES.bK; break;
+            case 'q': piece = PIECES.bQ; break;
+            case 'P': piece = PIECES.wP; break;
+            case 'R': piece = PIECES.wR; break;
+            case 'N': piece = PIECES.wN; break;
+            case 'B': piece = PIECES.wB; break;
+            case 'K': piece = PIECES.wK; break;
+            case 'Q': piece = PIECES.wQ; break;
 
-          case '/':
-          case ' ':
-            rank--;
-            file = FILES.FILE_A;
-            fenCnt++;
-            continue;
-          default:
-            console.log('FEN Error');
-            return;
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+                piece = PIECES.EMPTY;
+                count = fen[fenCnt].charCodeAt() - '0'.charCodeAt();
+                break;
 
+            case '/':
+            case ' ':
+                rank--;
+                file = FILES.FILE_A;
+                fenCnt++;
+                continue;
+            default:
+                console.log("FEN error");
+                return;
+
+		}
+
+		for (i = 0; i < count; i++) {
+			sq120 = FR2SQ(file,rank);
+            GameBoard.pieces[sq120] = piece;
+			file++;
+        }
+		fenCnt++;
+	} // while loop end
+
+	//rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+	GameBoard.side = (fen[fenCnt] == 'w') ? COLOURS.WHITE : COLOURS.BLACK;
+	fenCnt += 2;
+
+	for (i = 0; i < 4; i++) {
+        if (fen[fenCnt] == ' ') {
+            break;
+        }
+		switch(fen[fenCnt]) {
+			case 'K': GameBoard.castlePerm |= CASTLEBIT.WKCA; break;
+			case 'Q': GameBoard.castlePerm |= CASTLEBIT.WQCA; break;
+			case 'k': GameBoard.castlePerm |= CASTLEBIT.BKCA; break;
+			case 'q': GameBoard.castlePerm |= CASTLEBIT.BQCA; break;
+			default:	     break;
+        }
+		fenCnt++;
+	}
+	fenCnt++;
+
+	if (fen[fenCnt] != '-') {
+		file = fen[fenCnt].charCodeAt() - 'a'.charCodeAt();
+		rank = fen[fenCnt + 1].charCodeAt() - '1'.charCodeAt();
+		console.log("fen[fenCnt]:" + fen[fenCnt] + " File:" + file + " Rank:" + rank);
+		GameBoard.enPas = FR2SQ(file,rank);
     }
-    //we can now make use of our count
-    for(i = 0; i < count; i++){
-      sq120 = FR25Q(file,rank);
-      Gamebord.pieces[sq120] = piece;
-      file++;
-    }
-    fenCnt++;
-  }
 
-  Gamebord.side = (fen[fenCnt] == 'w') ? COLOURS.WHITE : COLOURS.BLACK;
-  fenCnt += 2;
-
-  for (i = 0; i < 4; i++){
-    if (fen[fenCnt] == ' '){
-      break;
-    }
-    switch(fen[fenCnt]){
-      case 'K': Gamebord.castlePerm |= CASTLEBIT.WKCA; break;
-      case 'Q': Gamebord.castlePerm |= CASTLEBIT.WQCA; break;
-      case 'k': Gamebord.castlePerm |= CASTLEBIT.BKCA; break;
-      case 'q': Gamebord.castlePerm |= CASTLEBIT.BQCA; break;
-      default:  break;
-    }
-    fenCnt++;
-  }
-  fenCnt++;
-
-  if (fen[fenCnt] != '-'){
-    file = fen[fenCnt].charCodeAt() - 'a'.charCodeAt();
-    rank = fen[fenCnt + 1].charCodeAt() - '1'.charCodeAt();
-    console.log("fen[fenCnt]:" + fen[fenCnt] + " File:" + file + " Rank:" + rank);
-    Gamebord.enPas = FR25Q(file, rank);
-  }
-
-  Gamebord.posKey = GeneratePosKey();
-
-
-
-
-
+	GameBoard.posKey = GeneratePosKey();
 
 
 }
