@@ -255,7 +255,6 @@
 
 
 
-
 function PCEINDEX(pce, pceNum) {
 	return (pce * 10 + pceNum);
 }
@@ -266,6 +265,7 @@ GameBoard.pieces = new Array(BRD_SQ_NUM);
 GameBoard.side = COLOURS.WHITE;
 GameBoard.fiftyMove = 0;
 GameBoard.hisPly = 0;
+GameBoard.history = [];
 GameBoard.ply = 0;
 GameBoard.enPas = 0;
 GameBoard.castlePerm = 0;
@@ -273,10 +273,63 @@ GameBoard.material = new Array(2); // WHITE,BLACK material of pieces
 GameBoard.pceNum = new Array(13); // indexed by Pce
 GameBoard.pList = new Array(14 * 10);
 GameBoard.posKey = 0;
-
 GameBoard.moveList = new Array(MAXDEPTH * MAXPOSITIONMOVES);
 GameBoard.moveScores = new Array(MAXDEPTH * MAXPOSITIONMOVES);
 GameBoard.moveListStart = new Array(MAXDEPTH);
+GameBoard.PvTable = [];
+GameBoard.PvArray = new Array(MAXDEPTH);
+GameBoard.searchHistory = new Array( 14 * BRD_SQ_NUM);
+GameBoard.searchKillers = new Array(3 * MAXDEPTH);
+
+
+
+function CheckBoard() {
+
+	var t_pceNum = [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+	var t_material = [ 0, 0];
+	var sq64, t_piece, t_pce_num, sq120, colour, pcount;
+
+	for(t_piece = PIECES.wP; t_piece <= PIECES.bK; ++t_piece) {
+		for(t_pce_num = 0; t_pce_num < GameBoard.pceNum[t_piece]; ++t_pce_num) {
+			sq120 = GameBoard.pList[PCEINDEX(t_piece,t_pce_num)];
+			if(GameBoard.pieces[sq120] != t_piece) {
+				console.log('Error Pce Lists');
+				return BOOL.FALSE;
+			}
+		}
+	}
+
+	for(sq64 = 0; sq64 < 64; ++sq64) {
+		sq120 = SQ120(sq64);
+		t_piece = GameBoard.pieces[sq120];
+		t_pceNum[t_piece]++;
+		t_material[PieceCol[t_piece]] += PieceVal[t_piece];
+	}
+
+	for(t_piece = PIECES.wP; t_piece <= PIECES.bK; ++t_piece) {
+		if(t_pceNum[t_piece] != GameBoard.pceNum[t_piece]) {
+				console.log('Error t_pceNum');
+				return BOOL.FALSE;
+			}
+	}
+
+	if(t_material[COLOURS.WHITE] != GameBoard.material[COLOURS.WHITE] ||
+			 t_material[COLOURS.BLACK] != GameBoard.material[COLOURS.BLACK]) {
+				console.log('Error t_material');
+				return BOOL.FALSE;
+	}
+
+	if(GameBoard.side!=COLOURS.WHITE && GameBoard.side!=COLOURS.BLACK) {
+				console.log('Error GameBoard.side');
+				return BOOL.FALSE;
+	}
+
+	if(GeneratePosKey()!=GameBoard.posKey) {
+				console.log('Error GameBoard.posKey');
+				return BOOL.FALSE;
+	}
+	return BOOL.TRUE;
+}
 
 function PrintBoard() {
 
@@ -312,7 +365,6 @@ function PrintBoard() {
 	console.log("key:" + GameBoard.posKey.toString(16));
 }
 
-
 function GeneratePosKey() {
 
 	var sq = 0;
@@ -340,17 +392,21 @@ function GeneratePosKey() {
 
 }
 
-function ResetBoard() {
+function PrintPieceLists() {
 
-	var index = 0;
+	var piece, pceNum;
 
-	for(index = 0; index < BRD_SQ_NUM; ++index) {
-		GameBoard.pieces[index] = SQUARES.OFFBOARD;
+	for(piece = PIECES.wP; piece <= PIECES.bK; ++piece) {
+		for(pceNum = 0; pceNum < GameBoard.pceNum[piece]; ++pceNum) {
+			console.log('Piece ' + PceChar[piece] + ' on ' + PrSq( GameBoard.pList[PCEINDEX(piece,pceNum)] ));
+		}
 	}
 
-	for(index = 0; index < 64; ++index) {
-		GameBoard.pieces[SQ120(index)] = PIECES.EMPTY;
-	}
+}
+
+function UpdateListsMaterial() {
+
+	var piece,sq,index,colour;
 
 	for(index = 0; index < 14 * 120; ++index) {
 		GameBoard.pList[index] = PIECES.EMPTY;
@@ -362,6 +418,34 @@ function ResetBoard() {
 
 	for(index = 0; index < 13; ++index) {
 		GameBoard.pceNum[index] = 0;
+	}
+
+	for(index = 0; index < 64; ++index) {
+		sq = SQ120(index);
+		piece = GameBoard.pieces[sq];
+		if(piece != PIECES.EMPTY) {
+
+			colour = PieceCol[piece];
+
+			GameBoard.material[colour] += PieceVal[piece];
+
+			GameBoard.pList[PCEINDEX(piece,GameBoard.pceNum[piece])] = sq;
+			GameBoard.pceNum[piece]++;
+		}
+	}
+
+}
+
+function ResetBoard() {
+
+	var index = 0;
+
+	for(index = 0; index < BRD_SQ_NUM; ++index) {
+		GameBoard.pieces[index] = SQUARES.OFFBOARD;
+	}
+
+	for(index = 0; index < 64; ++index) {
+		GameBoard.pieces[SQ120(index)] = PIECES.EMPTY;
 	}
 
 	GameBoard.side = COLOURS.BOTH;
@@ -464,6 +548,92 @@ function ParseFen(fen) {
     }
 
 	GameBoard.posKey = GeneratePosKey();
+	UpdateListsMaterial();
+}
+
+function PrintSqAttacked() {
+
+	var sq,file,rank,piece;
+
+	console.log("\nAttacked:\n");
+
+	for(rank = RANKS.RANK_8; rank >= RANKS.RANK_1; rank--) {
+		var line =((rank+1) + "  ");
+		for(file = FILES.FILE_A; file <= FILES.FILE_H; file++) {
+			sq = FR2SQ(file,rank);
+			if(SqAttacked(sq, GameBoard.side^1) == BOOL.TRUE) piece = "X";
+			else piece = "-";
+			line += (" " + piece + " ");
+		}
+		console.log(line);
+	}
+
+	console.log("");
+
+}
+
+function SqAttacked(sq, side) {
+	var pce;
+	var t_sq;
+	var index;
+
+	if(side == COLOURS.WHITE) {
+		if(GameBoard.pieces[sq - 11] == PIECES.wP || GameBoard.pieces[sq - 9] == PIECES.wP) {
+			return BOOL.TRUE;
+		}
+	} else {
+		if(GameBoard.pieces[sq + 11] == PIECES.bP || GameBoard.pieces[sq + 9] == PIECES.bP) {
+			return BOOL.TRUE;
+		}
+	}
+
+	for(index = 0; index < 8; index++) {
+		pce = GameBoard.pieces[sq + KnDir[index]];
+		if(pce != SQUARES.OFFBOARD && PieceCol[pce] == side && PieceKnight[pce] == BOOL.TRUE) {
+			return BOOL.TRUE;
+		}
+	}
+
+	for(index = 0; index < 4; ++index) {
+		dir = RkDir[index];
+		t_sq = sq + dir;
+		pce = GameBoard.pieces[t_sq];
+		while(pce != SQUARES.OFFBOARD) {
+			if(pce != PIECES.EMPTY) {
+				if(PieceRookQueen[pce] == BOOL.TRUE && PieceCol[pce] == side) {
+					return BOOL.TRUE;
+				}
+				break;
+			}
+			t_sq += dir;
+			pce = GameBoard.pieces[t_sq];
+		}
+	}
+
+	for(index = 0; index < 4; ++index) {
+		dir = BiDir[index];
+		t_sq = sq + dir;
+		pce = GameBoard.pieces[t_sq];
+		while(pce != SQUARES.OFFBOARD) {
+			if(pce != PIECES.EMPTY) {
+				if(PieceBishopQueen[pce] == BOOL.TRUE && PieceCol[pce] == side) {
+					return BOOL.TRUE;
+				}
+				break;
+			}
+			t_sq += dir;
+			pce = GameBoard.pieces[t_sq];
+		}
+	}
+
+	for(index = 0; index < 8; index++) {
+		pce = GameBoard.pieces[sq + KiDir[index]];
+		if(pce != SQUARES.OFFBOARD && PieceCol[pce] == side && PieceKing[pce] == BOOL.TRUE) {
+			return BOOL.TRUE;
+		}
+	}
+
+	return BOOL.FALSE;
 
 
 }
